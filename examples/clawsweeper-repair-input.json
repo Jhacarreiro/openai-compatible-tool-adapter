@@ -1,0 +1,17 @@
+{
+  "task": "repair_edit",
+  "target_dir": "/tmp/example-repo",
+  "fix_artifact": {
+    "summary": "Fix the review finding narrowly.",
+    "likely_files": ["src/example.ts"],
+    "validation_commands": ["npm test -- src/example.test.ts"]
+  },
+  "repair_contract": {
+    "must_touch": ["src/example.ts"],
+    "must_not_touch": ["package-lock.json", "pnpm-lock.yaml", "yarn.lock"],
+    "must_prove": ["targeted validation passes"]
+  },
+  "allowed_files": ["src/example.ts", "src/example.test.ts"],
+  "allowed_pr_refs": ["owner/repo#123"],
+  "validation_commands": ["npm test -- src/example.test.ts"]
+}

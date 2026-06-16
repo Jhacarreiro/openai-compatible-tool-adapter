@@ -1,0 +1,18 @@
+{
+  "name": "openai-compatible-tool-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Generic OpenAI-compatible tool adapter with recipe-based integrations.",
+  "bin": {
+    "openai-compatible-tool-adapter": "dist/bin/openai-compatible-tool-adapter.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0"
+  }
+}
