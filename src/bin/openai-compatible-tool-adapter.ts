@@ -18,7 +18,8 @@ type Message = {
 };
 type ToolCall = { id: string; function: { name: string; arguments?: string } };
 
-const args = process.argv.slice(2);
+const rawArgs = process.argv.slice(2);
+const args = normalizeCodexExecArgs(rawArgs);
 const cd = stringArg("--cd", process.cwd());
 const outputLastMessage = stringArg("--output-last-message", "");
 const outputSchema = stringArg("--output-schema", "");
@@ -824,6 +825,20 @@ function finalDiffSummary() {
   process.stdout.write(`RUNNER_FINAL_DIFF_EXISTS=${worktreeHasDiff() ? "1" : "0"}\n`);
   if (status.stdout) process.stdout.write(`RUNNER_FINAL_STATUS:\n${status.stdout}`);
   if (stat.stdout) process.stdout.write(`RUNNER_FINAL_DIFF_STAT:\n${stat.stdout}`);
+}
+
+
+function normalizeCodexExecArgs(argv: string[]): string[] {
+  const normalized = [...argv];
+  if (normalized[0] === "exec") normalized.shift();
+  if (normalized[0] && !normalized[0].startsWith("-")) {
+    throw new Error(`unsupported adapter subcommand: ${normalized[0]}`);
+  }
+  return normalized.filter((arg, index) => {
+    if (arg === "--json") return false;
+    if (arg === "-" && index === normalized.length - 1) return false;
+    return true;
+  });
 }
 
 function stringArg(name: string, fallback: string): string {

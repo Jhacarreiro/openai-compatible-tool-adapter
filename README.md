@@ -23,3 +23,11 @@ Design principles:
 5. Keep host-project PRs small: add an external command socket, not a full parallel model runtime.
 
 Status: initial extraction from the ClawSweeper OpenAI-compatible backend experiment plus later repair-hardening work. Local-first until API and recipe contracts are stable.
+
+## Codex-compatible command shape
+
+The adapter accepts the command shape used by Codex-style hosts:
+
+
+
+The  subcommand,  flag, and trailing  are accepted for compatibility. Provider selection and credentials come from  environment variables or recipe-specific wrappers.
