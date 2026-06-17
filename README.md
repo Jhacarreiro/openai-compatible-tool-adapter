@@ -1,35 +1,200 @@
 # OpenAI-compatible tool adapter
 
-A recipe-based adapter for running tool-using agents through OpenAI-compatible chat-completions providers.
+Generic command-line adapter for running tool-using agents through OpenAI-compatible chat-completions providers.
 
-The project is intentionally not tied to ClawSweeper, Crabfleet, or any single automation system. Those live as recipes. The core adapter provides a provider client, local tool loop, textual-tool-call normalization, schema/result normalization, and capability boundaries that recipes can narrow for a specific workflow.
+The adapter is intentionally not tied to ClawSweeper, Crabfleet, Octopus, or any single automation system. The core package provides a Codex-shaped command surface, a local tool loop, textual-tool-call normalization, schema/result normalization, and capability boundaries. Product-specific integration lives in `recipes/`.
 
-Current recipes:
-- recipes/clawsweeper-repair: external-command contract for ClawSweeper repair edit/review steps, without adding a provider runtime to ClawSweeper core.
-- recipes/crabfleet: Gallivanter/Crabfleet operational profile for local supervised automation.
+## Why this exists
 
-Runtime shape:
-  OPENAI_COMPATIBLE_ADAPTER_BASE_URL=https://api.example.com/v1
-  OPENAI_COMPATIBLE_ADAPTER_MODEL=provider/model
-  OPENAI_COMPATIBLE_ADAPTER_API_KEY_ENV=PROVIDER_API_KEY
-  PROVIDER_API_KEY=...
-  openai-compatible-tool-adapter exec --cd /path/to/repo --json -
+Many automation tools already know how to call a CLI such as `codex exec` with:
 
-Design principles:
-1. Keep provider/runtime logic outside host projects.
-2. Use job-scoped capability inputs: allowed files, allowed PR refs, validation commands, and output schemas.
-3. Do not pass broad credentials by default.
-4. Treat GitHub/token access as recipe-owned and allowlisted by construction.
-5. Keep host-project PRs small: add an external command socket, not a full parallel model runtime.
+- a working directory;
+- a stdin prompt;
+- optional JSON output schema;
+- optional `--output-last-message` file;
+- stdout/stderr transcripts.
 
-Status: initial extraction from the ClawSweeper OpenAI-compatible backend experiment plus later repair-hardening work. Local-first until API and recipe contracts are stable.
+This project lets those tools keep that simple external-command contract while the model/provider logic lives outside the host project.
+
+In other words: upstream projects only need a small custom model command hook. They do not need to vendor OpenAI-compatible provider clients or tool-loop code.
+
+## Current recipes
+
+```text
+recipes/clawsweeper-repair/
+recipes/crabfleet/
+```
+
+`recipes/clawsweeper-repair` documents how to connect ClawSweeper repair/review steps to this adapter without adding provider runtime code to ClawSweeper.
+
+`recipes/crabfleet` documents the Gallivanter/Crabfleet operational profile used for local supervised automation.
+
+Recipes are examples and integration profiles. Runtime secrets and production config should stay outside git.
+
+## Install from source
+
+```bash
+git clone https://github.com/Jhacarreiro/openai-compatible-tool-adapter.git
+cd openai-compatible-tool-adapter
+corepack pnpm install
+corepack pnpm run build
+```
+
+## Provider keys and environment
+
+Keys are not stored in this repository. Put them in your process manager, shell profile, secret store, CI secrets, systemd unit, Docker secret, or local `.env` that is not committed.
+
+The generic adapter reads:
+
+```bash
+export OPENAI_COMPATIBLE_ADAPTER_BASE_URL="https://api.example.com/v1"
+export OPENAI_COMPATIBLE_ADAPTER_MODEL="provider/model"
+export OPENAI_COMPATIBLE_ADAPTER_API_KEY_ENV="PROVIDER_API_KEY"
+export PROVIDER_API_KEY="...real secret..."
+```
+
+Optional limits:
+
+```bash
+export OPENAI_COMPATIBLE_ADAPTER_MAX_TURNS=0
+export OPENAI_COMPATIBLE_ADAPTER_MAX_TOKENS=0
+export OPENAI_COMPATIBLE_ADAPTER_MAX_RETRIES=3
+export OPENAI_COMPATIBLE_ADAPTER_REQUEST_TIMEOUT_MS=600000
+export OPENAI_COMPATIBLE_ADAPTER_COMMAND_TIMEOUT_MS=120000
+export OPENAI_COMPATIBLE_ADAPTER_ALLOWED_FILES="src/index.ts,tests/index.test.ts"
+```
+
+`OPENAI_COMPATIBLE_ADAPTER_MAX_TURNS=0` means unlimited turns inside the adapter. Use the outer host timeout as the real budget.
+
+GitHub access is recipe-owned. When a recipe needs GitHub, provide a normal token in the environment used to launch the adapter:
+
+```bash
+export GH_TOKEN="..."
+export GITHUB_TOKEN="$GH_TOKEN"
+```
+
+Recipe wrappers may also map that same token to recipe-specific names, for example `CLAWSWEEPER_INVENTORY_TOKEN` and `CLAWSWEEPER_DISPATCH_TOKEN`. Do not hardcode tokens in recipe files.
 
 ## Codex-compatible command shape
 
 The adapter accepts the command shape used by Codex-style hosts:
 
 ```bash
-openai-compatible-tool-adapter exec --cd /path/to/repo --output-last-message /tmp/out.json --output-schema schema.json --json -
+printf "Inspect this repository and return JSON." | \
+  node dist/bin/openai-compatible-tool-adapter.js exec \
+    --cd /path/to/repo \
+    --output-last-message /tmp/adapter-result.json \
+    --output-schema /path/to/schema.json \
+    --json -
 ```
 
-The `exec` subcommand, `--json` flag, and trailing `-` are accepted for compatibility. Provider selection and credentials come from `OPENAI_COMPATIBLE_ADAPTER_*` environment variables or recipe-specific wrappers.
+The `exec` subcommand, `--json` flag, and trailing `-` are accepted for compatibility. The prompt is read from stdin.
+
+Currently recognized arguments include:
+
+```text
+exec
+--cd <path>
+--output-last-message <path>
+--output-schema <path>
+--json
+-
+```
+
+Other Codex flags such as sandbox/model flags may be passed by hosts during migration. The adapter ignores flags it does not need unless they conflict with its command shape.
+
+## Minimal standalone example
+
+```bash
+export OPENAI_COMPATIBLE_ADAPTER_BASE_URL="https://api.example.com/v1"
+export OPENAI_COMPATIBLE_ADAPTER_MODEL="provider/model"
+export OPENAI_COMPATIBLE_ADAPTER_API_KEY_ENV="PROVIDER_API_KEY"
+export PROVIDER_API_KEY="..."
+
+printf "Read package.json and summarize the project in JSON." | \
+  node dist/bin/openai-compatible-tool-adapter.js exec \
+    --cd "$PWD" \
+    --output-last-message /tmp/adapter-result.json \
+    --json -
+
+cat /tmp/adapter-result.json
+```
+
+## Connecting another tool or repository
+
+A host project should add the smallest possible external command hook, for example:
+
+```bash
+MODEL_COMMAND=/path/to/openai-compatible-tool-adapter/dist/bin/openai-compatible-tool-adapter.js
+MODEL_COMMAND_ARGS="[\"exec\"]"
+```
+
+Then the host continues to provide:
+
+```text
+stdin prompt
+--cd target checkout
+--output-last-message result file
+--output-schema optional schema
+--json -
+```
+
+If the host already calls `codex exec`, the most compatible integration is usually a small wrapper script that translates host-specific environment names into `OPENAI_COMPATIBLE_ADAPTER_*` and then invokes this adapter.
+
+## ClawSweeper wrapper
+
+This repository includes:
+
+```text
+bin/clawsweeper-repair-adapter.mjs
+```
+
+That wrapper maps ClawSweeper environment names to the generic adapter contract:
+
+```text
+CLAWSWEEPER_OPENAI_COMPATIBLE_BASE_URL      -> OPENAI_COMPATIBLE_ADAPTER_BASE_URL
+CLAWSWEEPER_OPENAI_COMPATIBLE_MODEL         -> OPENAI_COMPATIBLE_ADAPTER_MODEL
+CLAWSWEEPER_OPENAI_COMPATIBLE_API_KEY_ENV   -> OPENAI_COMPATIBLE_ADAPTER_API_KEY_ENV
+CLAWSWEEPER_OPENAI_COMPATIBLE_MAX_TURNS     -> OPENAI_COMPATIBLE_ADAPTER_MAX_TURNS
+CLAWSWEEPER_OPENAI_COMPATIBLE_MAX_TOKENS    -> OPENAI_COMPATIBLE_ADAPTER_MAX_TOKENS
+```
+
+It also preserves common GitHub token aliases when present:
+
+```text
+GH_TOKEN
+GITHUB_TOKEN
+CLAWSWEEPER_INVENTORY_TOKEN
+CLAWSWEEPER_DISPATCH_TOKEN
+```
+
+See `recipes/clawsweeper-repair/` for details.
+
+## Tool surface
+
+The adapter exposes a deliberately small local tool set to the model:
+
+```text
+read_file
+read_file_range
+write_file
+replace_in_file
+run_command
+search_files
+apply_patch
+git_diff
+```
+
+Writes are limited to the target checkout. If `OPENAI_COMPATIBLE_ADAPTER_ALLOWED_FILES` is set, write tools are limited to those relative paths.
+
+## Security model
+
+- Secrets live outside git.
+- Provider credentials are passed by environment variable name, not hardcoded value.
+- GitHub access is recipe-owned and should be allowlisted by the host runtime.
+- The adapter never pushes, comments, labels, merges, or opens pull requests by itself.
+- The host project remains responsible for choosing the working directory, sandbox posture, validation commands, and whether a later publish step is allowed.
+
+## Repository status
+
+This is an early public extraction from local ClawSweeper/OpenAI-compatible backend experiments. The intended integration pattern is small upstream PRs in host projects plus recipe-owned local configuration, not provider-specific code inside every host repository.
