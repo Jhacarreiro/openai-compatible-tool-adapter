@@ -7,7 +7,10 @@ Narrow path for ClawSweeper integration:
 - The adapter receives only job-scoped context and returns schema-valid JSON.
 
 Example host config:
-  CLAWSWEEPER_REPAIR_ADAPTER_CMD="openai-compatible-tool-adapter exec --json -"
+  CLAWSWEEPER_MODEL_BACKEND=codex-cli
+  CLAWSWEEPER_MODEL_COMMAND=/path/to/openai-compatible-tool-adapter/bin/clawsweeper-repair-adapter.mjs
+
+The wrapper maps ClawSweeper environment names to the generic adapter environment contract, so ClawSweeper does not need to bundle the provider runtime.
 
 Example recipe input fields:
 - task: repair_edit.
