@@ -1,7 +1,7 @@
 {
   "name": "openai-compatible-tool-adapter",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "type": "module",
   "description": "Generic OpenAI-compatible tool adapter with recipe-based integrations.",
   "bin": {
@@ -14,5 +14,6 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "typescript": "^5.8.0"
-  }
+  },
+  "license": "MIT"
 }
