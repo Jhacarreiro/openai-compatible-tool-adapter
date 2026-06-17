@@ -28,6 +28,8 @@ Status: initial extraction from the ClawSweeper OpenAI-compatible backend experi
 
 The adapter accepts the command shape used by Codex-style hosts:
 
+```bash
+openai-compatible-tool-adapter exec --cd /path/to/repo --output-last-message /tmp/out.json --output-schema schema.json --json -
+```
 
-
-The  subcommand,  flag, and trailing  are accepted for compatibility. Provider selection and credentials come from  environment variables or recipe-specific wrappers.
+The `exec` subcommand, `--json` flag, and trailing `-` are accepted for compatibility. Provider selection and credentials come from `OPENAI_COMPATIBLE_ADAPTER_*` environment variables or recipe-specific wrappers.
