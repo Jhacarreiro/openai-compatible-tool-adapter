@@ -1,17 +1,17 @@
 # Source map
 
-From the closed ClawSweeper OpenAI-compatible backend PR, extracted into generic core:
+Extracted into generic core:
 - OpenAI-compatible chat-completions runner.
 - Local read/write/shell/git tool loop.
 - Textual/pseudo tool-call normalization.
 - Result normalization and schema repair/finalization logic.
 - Provider retry, request timeout, max-turn handling, max-token controls.
 
-Not kept as upstream ClawSweeper core:
-- Provider selection inside ClawSweeper.
-- Bundled OpenAI-compatible runtime inside ClawSweeper.
-- Broad model-controlled GitHub context helper.
-- Local Gallivanter model backend config paths.
+Not kept in host project core:
+- Provider selection inside host projects.
+- Bundled OpenAI-compatible runtime inside host projects.
+- Broad model-controlled GitHub context helpers.
+- Deployment-specific model backend config paths.
 
 From later repair hardening, candidate generic concepts for recipes and host sockets:
 - Repair contract: must_touch, must_not_touch, must_prove.

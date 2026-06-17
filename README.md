@@ -2,7 +2,7 @@
 
 Generic command-line adapter for running tool-using agents through OpenAI-compatible chat-completions providers.
 
-The adapter is intentionally not tied to ClawSweeper, Crabfleet, Octopus, or any single automation system. The core package provides a Codex-shaped command surface, a local tool loop, textual-tool-call normalization, schema/result normalization, and capability boundaries. Product-specific integration lives in `recipes/`.
+The adapter is intentionally not tied to any single automation system. The core package provides a Codex-shaped command surface, a local tool loop, textual-tool-call normalization, schema/result normalization, and capability boundaries. Product-specific integration lives in `recipes/`.
 
 ## Why this exists
 
@@ -22,19 +22,19 @@ In other words: upstream projects only need a small custom model command hook. T
 
 ```text
 recipes/clawsweeper-repair/
-recipes/crabfleet/
+recipes/local-ops/
 ```
 
 `recipes/clawsweeper-repair` documents how to connect ClawSweeper repair/review steps to this adapter without adding provider runtime code to ClawSweeper.
 
-`recipes/crabfleet` documents the Gallivanter/Crabfleet operational profile used for local supervised automation.
+`recipes/local-ops` documents a generic local supervised-automation profile.
 
 Recipes are examples and integration profiles. Runtime secrets and production config should stay outside git.
 
 ## Install from source
 
 ```bash
-git clone https://github.com/Jhacarreiro/openai-compatible-tool-adapter.git
+git clone https://github.com/<owner>/openai-compatible-tool-adapter.git
 cd openai-compatible-tool-adapter
 corepack pnpm install
 corepack pnpm run build
@@ -197,4 +197,4 @@ Writes are limited to the target checkout. If `OPENAI_COMPATIBLE_ADAPTER_ALLOWED
 
 ## Repository status
 
-This is an early public extraction from local ClawSweeper/OpenAI-compatible backend experiments. The intended integration pattern is small upstream PRs in host projects plus recipe-owned local configuration, not provider-specific code inside every host repository.
+This is an early public extraction of a generic OpenAI-compatible tool-loop adapter. The intended integration pattern is small upstream PRs in host projects plus recipe-owned local configuration, not provider-specific code inside every host repository.
