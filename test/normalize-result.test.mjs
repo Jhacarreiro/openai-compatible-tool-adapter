@@ -19,7 +19,11 @@ test("normalizer keeps a concrete fix_artifact with validation as planned", () =
         fix_artifact: {
           summary: "Applied oxfmt formatting to src/repair/pr-repair-intake.ts to fix format:check.",
           likely_files: ["src/repair/pr-repair-intake.ts"],
-          validation_commands: ["corepack pnpm run format:check"],
+          validation_commands: [
+            "corepack pnpm run format:check",
+            "npx oxlint src/repair --tsconfig tsconfig.repair.json --deny-warnings",
+            "npx tsgo -p tsconfig.repair.json",
+          ],
           repair_strategy: "repair_contributor_branch",
           source_prs: ["https://github.com/openclaw/clawsweeper/pull/307"],
           pr_title: "chore: format pr repair intake",
@@ -33,6 +37,11 @@ test("normalizer keeps a concrete fix_artifact with validation as planned", () =
   assert.equal(result.status, "planned");
   assert.deepEqual(result.needs_human, []);
   assert.equal(result.fix_artifact?.likely_files?.[0], "src/repair/pr-repair-intake.ts");
+  assert.deepEqual(result.fix_artifact?.validation_commands, [
+    "pnpm run format:check",
+    "pnpm exec oxlint src/repair --tsconfig tsconfig.repair.json --deny-warnings",
+    "pnpm exec tsgo -p tsconfig.repair.json",
+  ]);
 });
 
 test("normalizer accepts build_fix_artifact alias", () => {
@@ -45,7 +54,11 @@ test("normalizer accepts build_fix_artifact alias", () => {
         build_fix_artifact: {
           summary: "Fix format:check by applying oxfmt to pr-repair-intake.ts.",
           likely_files: ["src/repair/pr-repair-intake.ts"],
-          validation_commands: ["corepack pnpm run format:check"],
+          validation_commands: [
+            "corepack pnpm run format:check",
+            "npx oxlint src/repair --tsconfig tsconfig.repair.json --deny-warnings",
+            "npx tsgo -p tsconfig.repair.json",
+          ],
           pr_title: "chore: format pr repair intake",
           pr_body: "Fix oxfmt format:check failure in pr-repair-intake.ts.",
         },

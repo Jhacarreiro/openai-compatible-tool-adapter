@@ -309,19 +309,21 @@ function synthesizeFixArtifact(
         : arr(obj.likely_files).length
           ? arr(obj.likely_files)
           : [];
-  const validationCommands = arr(nested.validation_commands).length
-    ? arr(nested.validation_commands)
-    : arr(nested.validation?.ran).length
-      ? arr(nested.validation.ran)
-      : validationList(nested.validation).length
-        ? validationList(nested.validation)
-        : arr(obj.validation_commands).length
-        ? arr(obj.validation_commands)
-        : arr(obj.validation?.ran).length
-          ? arr(obj.validation.ran)
-          : validationList(obj.validation).length
-            ? validationList(obj.validation)
-            : [];
+  const validationCommands = normalizeValidationCommands(
+    arr(nested.validation_commands).length
+      ? arr(nested.validation_commands)
+      : arr(nested.validation?.ran).length
+        ? arr(nested.validation.ran)
+        : validationList(nested.validation).length
+          ? validationList(nested.validation)
+          : arr(obj.validation_commands).length
+            ? arr(obj.validation_commands)
+            : arr(obj.validation?.ran).length
+              ? arr(obj.validation.ran)
+              : validationList(obj.validation).length
+                ? validationList(obj.validation)
+                : [],
+  );
   if (likelyFiles.length === 0 || validationCommands.length === 0) return null;
   const validationSummary =
     str(nested.validation_summary) ||
@@ -339,9 +341,7 @@ function synthesizeFixArtifact(
         : ["repair-only PR intake"],
     likely_files: likelyFiles,
     linked_refs: [ref],
-    validation_commands: validationSummary
-      ? [...validationCommands, `# ${validationSummary}`]
-      : validationCommands,
+    validation_commands: validationCommands,
     changelog_required: nested.changelog_required === true || obj.changelog_required === true,
     credit_notes: [prUrl ? `Source PR: ${prUrl}` : "Preserve contributor credit."],
     pr_title: str(nested.pr_title) || str(obj.pr_title) || `Repair ${repo} ${ref}`,
@@ -570,6 +570,16 @@ function validationList(value: any): string[] {
   const values = arr(value);
   if (values.length === 0) return [];
   return values.map(validationCommandFromText).filter(Boolean);
+}
+
+function normalizeValidationCommands(commands: string[]): string[] {
+  return commands
+    .map((command) => command.trim())
+    .filter(Boolean)
+    .filter((command) => !command.startsWith("#"))
+    .map((command) => command.replace(/^corepack\s+pnpm\b/, "pnpm"))
+    .map((command) => command.replace(/^npx\s+tsgo\b/, "pnpm exec tsgo"))
+    .map((command) => command.replace(/^npx\s+oxlint\b/, "pnpm exec oxlint"));
 }
 
 function validationCommandFromText(value: string): string {
