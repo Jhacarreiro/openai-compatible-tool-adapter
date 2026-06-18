@@ -114,6 +114,7 @@ const tools = [
   tool("git_diff", "Return git status and git diff for the target repository.", {}),
 ];
 const allowedToolNames = tools.map((toolEntry) => toolEntry.function.name);
+const observedEvidence: string[] = [];
 
 async function main() {
   const rawPrompt = fs.readFileSync(0, "utf8");
@@ -222,6 +223,7 @@ async function main() {
       process.stdout.write(`tool_call: ${call.function.name} ${call.function.arguments || "{}"}\n`);
       const result = executeTool(call);
       toolsExecuted += 1;
+      recordObservedEvidence(call, result);
       process.stdout.write(`tool_result: ${truncate(result.content, 2000)}\n`);
       messages.push(result);
     }
@@ -495,6 +497,26 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
+function recordObservedEvidence(call: ToolCall, result: Message) {
+  const name = call.function.name;
+  let obj: any = {};
+  try { obj = JSON.parse(String(result.content || "{}")); } catch { obj = {}; }
+  const filePath = obj.path ? String(obj.path) : "";
+  let text = name;
+  if (name === "read_file" || name === "read_file_range") {
+    text = name + " inspected " + (filePath || "unknown path") + ":" + String(obj.start ?? "?") + "-" + String(obj.end ?? "?");
+  } else if (name === "run_command") {
+    text = "run_command status=" + String(obj.status ?? "unknown");
+  } else if (name === "git_diff") {
+    const changed = String(obj.status || "").trim().split(/\r?\n/).filter(Boolean).slice(0, 10).join("; ");
+    text = "git_diff observed " + (changed || "no changed files");
+  } else if (filePath) {
+    text = name + " " + filePath;
+  }
+  text = text.replace(/\s+/g, " ").trim();
+  if (text && !observedEvidence.includes(text)) observedEvidence.push(text.slice(0, 500));
+}
+
 function executeTool(call: ToolCall): Message {
   let parsed: any = {};
   try {
@@ -743,7 +765,7 @@ function extractJsonObject(value: string): string | null {
 
 function normalizeCodexResultIfNeeded(content: string, prompt: string, diffExists: boolean): string {
   process.stderr.write("[openai-compatible-tools] codex_result_normalization=normalize_candidate\n");
-  return normalizeCodexResult(content, prompt, diffExists);
+  return normalizeCodexResult(content, prompt, diffExists, observedEvidence);
 }
 
 function boundedCommandTimeout(value: unknown, fallbackMs: number): number {
