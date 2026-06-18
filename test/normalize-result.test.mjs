@@ -71,3 +71,30 @@ test("normalizer accepts build_fix_artifact alias", () => {
   assert.equal(result.fix_artifact?.repair_strategy, "repair_contributor_branch");
   assert.deepEqual(result.needs_human, []);
 });
+
+test("normalizer attaches observed adapter evidence to repair actions", () => {
+  const result = JSON.parse(
+    normalizeCodexResult(
+      JSON.stringify({
+        fix_needed: true,
+        summary: "Fix format check",
+        fix_artifact: {
+          summary: "Apply oxfmt to pr-repair-intake.ts.",
+          likely_files: ["src/repair/pr-repair-intake.ts"],
+          validation_commands: ["pnpm run format:check"],
+          pr_title: "chore: format pr repair intake",
+          pr_body: "Fix oxfmt format:check failure in pr-repair-intake.ts."
+        }
+      }),
+      prompt,
+      true,
+      ["read_file_range inspected src/repair/pr-repair-intake.ts:1-80", "run_command status=0"]
+    )
+  );
+  assert.equal(result.status, "planned");
+  assert.deepEqual(result.actions[0].evidence, [
+    "read_file_range inspected src/repair/pr-repair-intake.ts:1-80",
+    "run_command status=0"
+  ]);
+  assert.equal(result.fix_artifact.evidence_observed, undefined);
+});

@@ -171,7 +171,7 @@ function sectionFrom(text: string, start: string, end: string): string {
   return text.slice(startIndex, endIndex >= 0 ? endIndex : startIndex + 3000);
 }
 
-export function normalizeCodexResult(content: string, prompt: string, diffExists: boolean): string {
+export function normalizeCodexResult(content: string, prompt: string, diffExists: boolean, observedEvidence: string[] = []): string {
   const repo = promptVal(prompt, "repo") || "unknown/unknown";
   const cluster = promptVal(prompt, "cluster_id") || "openai-compatible-fallback";
   const rawMode = promptVal(prompt, "mode");
@@ -212,6 +212,7 @@ export function normalizeCodexResult(content: string, prompt: string, diffExists
   }
   const action = synthesizedFixArtifact ? "build_fix_artifact" : "needs_human";
   const humanNeeds = action === "needs_human" && needs.length === 0 ? [summary] : needs;
+  const actionEvidence = cleanEvidence(observedEvidence).length ? cleanEvidence(observedEvidence) : humanNeeds.length ? humanNeeds : [summary];
   return `${JSON.stringify(
     {
       status: action === "needs_human" ? "needs_human" : "planned",
@@ -235,7 +236,7 @@ export function normalizeCodexResult(content: string, prompt: string, diffExists
           duplicate_of: null,
           candidate_fix: null,
           comment: null,
-          evidence: humanNeeds.length ? humanNeeds : [summary],
+          evidence: actionEvidence,
           reason: humanNeeds[0] || summary,
         },
       ],
@@ -249,6 +250,19 @@ export function normalizeCodexResult(content: string, prompt: string, diffExists
     null,
     2,
   )}\n`;
+}
+
+function cleanEvidence(values: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const text = String(value ?? "").replace(/\s+/g, " ").trim();
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    out.push(text.length > 500 ? text.slice(0, 497) + "..." : text);
+    if (out.length >= 12) break;
+  }
+  return out;
 }
 
 function firstBuildFixAction(obj: any): any {
