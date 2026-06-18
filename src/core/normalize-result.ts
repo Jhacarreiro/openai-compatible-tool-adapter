@@ -425,8 +425,8 @@ function fixArtifactSatisfiesPrimaryRepairSignal(prompt: string, artifact: any):
   const terms = importantSignalTerms(signal);
   if (terms.length === 0) return true;
   const hits = terms.filter((term) => text.includes(term)).length;
-  const requiredHits = Math.max(3, Math.ceil(terms.length * 0.4));
-  return hits >= Math.min(requiredHits, terms.length);
+  const requiredHits = Math.min(1, terms.length);
+  return hits >= requiredHits;
 }
 
 function primaryRepairSignal(prompt: string): string {

@@ -2,3 +2,8 @@ node_modules/
 dist/
 .env
 *.log
+
+# Gallivanter local runtime state
+.gallivanter-runtime-adapter/
+gallivanter-runtime-adapter/
+.ops-backups/

@@ -252,7 +252,7 @@ async function main() {
       finalContent = String(msg.content ?? "");
       if (finalContent) process.stdout.write(`assistant_finalization:\n${finalContent}\n`);
     }
-    finalContent = normalizeCodexResult(finalContent, rawPrompt, diffExistsAtEnd);
+    finalContent = normalizeCodexResultIfNeeded(finalContent, rawPrompt, diffExistsAtEnd);
     exhausted = false;
   } else if (exhausted && outputSchema) {
     messages.push({
@@ -278,7 +278,7 @@ async function main() {
     });
   }
   if (outputSchema && outputSchema.endsWith("codex-result.schema.json"))
-    finalContent = normalizeCodexResult(finalContent, rawPrompt, diffExistsAtEnd);
+    finalContent = normalizeCodexResultIfNeeded(finalContent, rawPrompt, diffExistsAtEnd);
   let finalValidationErrors = validateFinalContent(finalContent);
   if (
     outputSchema &&
@@ -328,7 +328,7 @@ async function main() {
     );
     finalDiffSummary();
     if (!outputSchema.endsWith("codex-result.schema.json")) process.exit(2);
-    finalContent = normalizeCodexResult(finalContent, rawPrompt, diffExistsAtEnd);
+    finalContent = normalizeCodexResultIfNeeded(finalContent, rawPrompt, diffExistsAtEnd);
     finalValidationErrors = validateFinalContent(finalContent);
     if (finalValidationErrors.length > 0) process.exit(2);
   }
@@ -558,7 +558,7 @@ function executeTool(call: ToolCall): Message {
       let command = commandFromArgs(parsed);
       if (!command) return toolResult(call.id, { ok: false, error: "missing command" });
       command = rewriteUnsupportedGhPrView(command) ?? command;
-      const timeout = Math.min(Number(parsed.timeoutMs || commandTimeoutMs), commandTimeoutMs);
+      const timeout = boundedCommandTimeout(parsed.timeoutMs, commandTimeoutMs);
       const result = spawnSync("bash", ["-lc", command], {
         cwd,
         encoding: "utf8",
@@ -739,6 +739,17 @@ function extractJsonObject(value: string): string | null {
     }
   }
   return null;
+}
+
+function normalizeCodexResultIfNeeded(content: string, prompt: string, diffExists: boolean): string {
+  process.stderr.write("[openai-compatible-tools] codex_result_normalization=normalize_candidate\n");
+  return normalizeCodexResult(content, prompt, diffExists);
+}
+
+function boundedCommandTimeout(value: unknown, fallbackMs: number): number {
+  const requested = Number(value);
+  if (!Number.isFinite(requested) || requested <= 0) return fallbackMs;
+  return Math.max(1, Math.min(Math.floor(requested), fallbackMs));
 }
 
 function validateFinalContent(content: string): string[] {
