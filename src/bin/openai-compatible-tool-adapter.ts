@@ -7,6 +7,7 @@ import {
   isPrematureNeedsHuman,
   looksLikeCodexResultCandidate,
   normalizeCodexResult,
+  normalizeCodexReview,
 } from "../core/normalize-result.js";
 import { normalizeToolCalls, pseudoToolCalls } from "../core/textual-tools.js";
 
@@ -169,6 +170,15 @@ async function main() {
     if (calls.length === 0) {
       const validationErrors = validateFinalContent(finalContent);
       if (outputSchema && validationErrors.length > 0) {
+        if (outputSchema.endsWith("codex-review.schema.json")) {
+          const normalized = normalizeCodexReview(finalContent);
+          const normalizedErrors = validateFinalContent(normalized);
+          if (normalizedErrors.length === 0) {
+            finalContent = normalized;
+            exhausted = false;
+            break;
+          }
+        }
         if (outputSchema.endsWith("codex-result.schema.json")) {
           if (looksLikeCodexResultCandidate(finalContent)) {
             const normalized = normalizeCodexResult(finalContent, rawPrompt, worktreeHasDiff());
@@ -279,6 +289,8 @@ async function main() {
       partial_summary: finalContent || null,
     });
   }
+  if (outputSchema && outputSchema.endsWith("codex-review.schema.json"))
+    finalContent = normalizeCodexReview(finalContent);
   if (outputSchema && outputSchema.endsWith("codex-result.schema.json"))
     finalContent = normalizeCodexResultIfNeeded(finalContent, rawPrompt, diffExistsAtEnd);
   let finalValidationErrors = validateFinalContent(finalContent);

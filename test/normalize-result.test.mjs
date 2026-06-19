@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { normalizeCodexResult } from "../dist/core/normalize-result.js";
+import { normalizeCodexResult, normalizeCodexReview } from "../dist/core/normalize-result.js";
 
 const prompt = `repo: openclaw/clawsweeper
 cluster_id: repair-pr-openclaw-clawsweeper-307
@@ -97,4 +97,36 @@ test("normalizer attaches observed adapter evidence to repair actions", () => {
     "run_command status=0"
   ]);
   assert.equal(result.fix_artifact.evidence_observed, undefined);
+});
+
+
+test("normalizer converts loose review output", () => {
+  const result = JSON.parse(
+    normalizeCodexReview(
+      JSON.stringify({
+        verdict: "not_merge_ready",
+        reason: "Validation failed",
+        blockers: [{ title: "format check failed", detail: "pnpm format:check exited 1" }],
+        validation: { command: "pnpm format:check", status: 1 },
+      }),
+    ),
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.summary, "Validation failed");
+  assert.equal(result.findings_addressed, false);
+  assert.equal(result.findings[0].severity, "medium");
+  assert.equal(result.findings[0].summary, "format check failed");
+  assert.deepEqual(result.evidence, ['command: "pnpm format:check"', "status: 1"]);
+});
+
+test("normalizer converts mergeable review output", () => {
+  const result = JSON.parse(
+    normalizeCodexReview(
+      JSON.stringify({ mergeable: true, summary: "No blockers found", checks: ["pnpm check passed"] }),
+    ),
+  );
+  assert.equal(result.status, "passed");
+  assert.equal(result.findings_addressed, true);
+  assert.deepEqual(result.findings, []);
+  assert.deepEqual(result.evidence, ["pnpm check passed"]);
 });

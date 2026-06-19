@@ -671,3 +671,80 @@ function arr(v: unknown): string[] {
     .filter(Boolean);
 }
 
+export function normalizeCodexReview(content: string): string {
+  const normalized = normalizeCodexReviewValue(parseLooseObject(content)) ?? {
+    status: "blocked",
+    summary: "Review output did not match the expected schema.",
+    findings: [],
+    findings_addressed: false,
+    evidence: [],
+  };
+  return `${JSON.stringify(normalized, null, 2)}\n`;
+}
+
+function normalizeCodexReviewValue(value: any): Record<string, any> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, any>;
+  const rawStatus = String(record.status ?? record.verdict ?? "").toLowerCase();
+  const findings = normalizeReviewFindings(record.findings ?? record.blockers ?? []);
+  const evidence = normalizeReviewEvidence(record.evidence ?? record.validation ?? record.checks ?? []);
+  const summary = String(
+    record.summary ??
+      record.reason ??
+      record.partial_summary ??
+      record.repair_summary ??
+      (findings.length > 0 ? findings.map((finding) => finding.summary ?? finding.detail ?? finding).join("; ") : ""),
+  ).trim();
+
+  if (rawStatus || "mergeable" in record || "verdict" in record || "blockers" in record) {
+    const passed =
+      record.mergeable === true ||
+      ["passed", "clean", "merge_ready", "merge-ready", "ok"].includes(rawStatus) ||
+      (rawStatus === "success" && findings.length === 0);
+    const blocked =
+      record.mergeable === false ||
+      ["blocked", "failed", "failure", "needs_human", "not_merge_ready"].includes(rawStatus) ||
+      findings.length > 0;
+    return {
+      status: passed && !blocked ? "passed" : "blocked",
+      summary: summary || (passed && !blocked ? "Review passed." : "Review found blockers."),
+      findings,
+      findings_addressed: passed && !blocked,
+      evidence,
+    };
+  }
+
+  return null;
+}
+
+function normalizeReviewFindings(value: any): Record<string, any>[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry, index) => {
+    if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+      const record = entry as Record<string, any>;
+      return {
+        severity: normalizeReviewSeverity(record.severity),
+        summary: String(record.summary ?? record.finding ?? record.title ?? `finding ${index + 1}`),
+        evidence: String(record.evidence ?? record.detail ?? record.reason ?? record.summary ?? ""),
+      };
+    }
+    return { severity: "medium", summary: String(entry), evidence: String(entry) };
+  });
+}
+
+function normalizeReviewSeverity(value: any): "critical" | "high" | "medium" | "low" {
+  const severity = String(value ?? "medium").toLowerCase();
+  return ["critical", "high", "medium", "low"].includes(severity)
+    ? (severity as "critical" | "high" | "medium" | "low")
+    : "medium";
+}
+
+function normalizeReviewEvidence(value: any): string[] {
+  if (Array.isArray(value)) return value.map((entry) => String(entry));
+  if (value && typeof value === "object") {
+    return Object.entries(value as Record<string, any>).map(([key, entry]) => `${key}: ${JSON.stringify(entry)}`);
+  }
+  return value == null ? [] : [String(value)];
+}
+
+
