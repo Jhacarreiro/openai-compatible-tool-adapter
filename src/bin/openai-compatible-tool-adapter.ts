@@ -9,6 +9,7 @@ import {
   normalizeCodexResult,
   normalizeCodexReview,
 } from "../core/normalize-result.js";
+import { buildClawSweeperEvidencePrelude } from "../core/clawsweeper-evidence-pack.js";
 import { normalizeToolCalls, pseudoToolCalls } from "../core/textual-tools.js";
 
 type Message = {
@@ -42,6 +43,9 @@ const requestTimeoutMs = numberEnv("OPENAI_COMPATIBLE_ADAPTER_REQUEST_TIMEOUT_MS
 const maxTokens = numberEnvAllowZero("OPENAI_COMPATIBLE_ADAPTER_MAX_TOKENS", 0);
 const commandOutputLimit = numberEnv("OPENAI_COMPATIBLE_ADAPTER_COMMAND_OUTPUT_LIMIT", 200000);
 const diffOutputLimit = numberEnv("OPENAI_COMPATIBLE_ADAPTER_DIFF_OUTPUT_LIMIT", 200000);
+const evidencePackEnabled = truthyEnv("OPENAI_COMPATIBLE_ADAPTER_CLAWSWEEPER_EVIDENCE_PACK");
+const evidencePackMaxHunks = numberEnv("OPENAI_COMPATIBLE_ADAPTER_EVIDENCE_PACK_MAX_HUNKS", 6);
+const evidencePackMaxHunkBytes = numberEnv("OPENAI_COMPATIBLE_ADAPTER_EVIDENCE_PACK_MAX_HUNK_BYTES", 12000);
 const allowed = String(process.env.OPENAI_COMPATIBLE_ADAPTER_ALLOWED_FILES || "")
   .split(/[,:]/)
   .map((entry) => entry.trim())
@@ -119,7 +123,14 @@ const observedEvidence: string[] = [];
 
 async function main() {
   const rawPrompt = fs.readFileSync(0, "utf8");
-  const prompt = compactRepairOnlyPrompt(rawPrompt);
+  const compactPrompt = compactRepairOnlyPrompt(rawPrompt);
+  const evidencePrelude = buildClawSweeperEvidencePrelude(rawPrompt, cwd, {
+    enabled: evidencePackEnabled,
+    maxHunks: evidencePackMaxHunks,
+    maxHunkBytes: evidencePackMaxHunkBytes,
+  });
+  if (evidencePrelude) process.stderr.write("[openai-compatible-tools] clawsweeper_evidence_pack=attached\n");
+  const prompt = evidencePrelude ? `${evidencePrelude}\n\n${compactPrompt}` : compactPrompt;
   const schemaInstruction = outputSchema
     ? `The final answer must be valid JSON matching the requested output schema path: ${outputSchema}. Do not wrap JSON in markdown.`
     : "For implementation tasks, summarize the changes made and validation run.";
@@ -910,6 +921,10 @@ function numberEnvZeroMeansUnlimited(name: string): number {
   const value = Number(raw);
   if (value === 0) return Number.POSITIVE_INFINITY;
   return Number.isFinite(value) && value > 0 ? value : Number.POSITIVE_INFINITY;
+}
+
+function truthyEnv(name: string): boolean {
+  return /^(1|true|yes|on)$/i.test(String(process.env[name] || "").trim());
 }
 
 function numberEnvAllowZero(name: string, fallback: number): number {
