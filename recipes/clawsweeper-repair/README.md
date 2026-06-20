@@ -53,6 +53,26 @@ CLAWSWEEPER_DISPATCH_TOKEN
 
 Do not commit tokens into `adapter.example.env`, recipe files, or allowlist files.
 
+## Optional deterministic evidence pack
+
+The wrapper can ask the adapter to prepend a provider-neutral evidence block to the model prompt:
+
+```bash
+export CLAWSWEEPER_REPAIR_EVIDENCE_PACK=1
+export CLAWSWEEPER_REPAIR_EVIDENCE_PACK_MAX_HUNKS=6
+export CLAWSWEEPER_REPAIR_EVIDENCE_PACK_MAX_HUNK_BYTES=12000
+```
+
+When enabled, the adapter reads only the prepared checkout and refs already fetched by ClawSweeper, especially refs shaped like:
+
+```text
+refs/remotes/clawsweeper/source-pr-<number>
+```
+
+It emits deterministic JSON with source PR refs, changed files, diff stat, relevant hunks, prompt repair signals, likely files and validation hints. This is evidence for the model, not a publish decision. ClawSweeper still owns validation, committing, pushing, commenting and policy gates.
+
+The evidence pack is intentionally provider-neutral. It does not add provider clients, model routing, PR comments, labels, pushes, or GitHub mutations to ClawSweeper.
+
 ## Expected host command shape
 
 ClawSweeper can call the wrapper using the same shape it would use for `codex exec`:
